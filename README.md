@@ -18,14 +18,14 @@ npm install
 Miner supports both META and FOMO coins:
 
 ```
-node mine.js --meta --chain=mainnet --phrase="secretphrase"
-node mine.js --fomo --chain=mainnet --phrase="secretphrase"
+node mine.js --meta --chain=mainnet --phrase="else viable vast edge ankle region stove shoulder tape wide sunset scene"
+node mine.js --fomo --chain=mainnet --phrase="else viable vast edge ankle region stove shoulder tape wide sunset scene"
 ```
 
 or you can run it in the boss mode, mining both:
 
 ```
-node mine.js --fomo --meta --chain=mainnet --phrase="secretphrase"
+node mine.js --fomo --meta --chain=mainnet --phrase="else viable vast edge ankle region stove shoulder tape wide sunset scene"
 
 ```
 
