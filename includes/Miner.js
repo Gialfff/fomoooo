@@ -2,7 +2,7 @@
 import suidouble from 'suidouble';
 import { bcs } from '@mysten/sui/bcs';
 import hasher from 'js-sha3';
-import { spawn, Thread, Worker } from "threads";
+import nodeCrypto from 'crypto';
 
 import { bytesTou64, bigIntTo32Bytes } from './math.js';
 import NonceFinder from './NonceFinder.js';
@@ -78,8 +78,11 @@ export default class Miner {
             meta = new Uint8Array([]);
         }
         if (!payload) {
-            payload = new Uint8Array([]);
+            payload = new Uint8Array(256);
+            const bytes = nodeCrypto.randomBytes(payload.length);
+            payload.set(bytes);
         }
+
         meta = new Uint8Array(meta);
         payload = new Uint8Array(payload);
 
@@ -354,36 +357,6 @@ export default class Miner {
         return null;
     }
 
-    // bigIntToUint8Array(v) {
-    //     let hex = BigInt(v).toString(16);
-    //     // if (hex.length % 2) { hex = '0' + hex; }
-
-    //     while (hex.length < 64) { 
-    //         hex = '0' + hex;
-    //     }
-
-    //     const len = hex.length / 2;
-    //     const u8 = new Uint8Array(len);
-          
-    //     let i = 0;
-    //     let j = 0;
-    //     while (i < len) {
-    //         u8[i] = parseInt(hex.slice(j, j+2), 16);
-    //         i += 1;
-    //         j += 2;
-    //     }
-
-    //     console.log(len);
-    //     console.log(len);
-    //     console.log(len);
-    //     console.log(len);
-    //     console.log(len);
-    //     console.log(len);
-    //     console.log(len);
-
-    //     return u8;
-    // }
-
     prepareHash(blockInfo, meta, payload) {
         const saltBytes = bcs.u64().serialize(blockInfo.salt).toBytes();
         const toHash1Length = blockInfo.previous_hash.length + saltBytes.length + meta.length + payload.length;
@@ -398,66 +371,4 @@ export default class Miner {
 
         return hash1;
     }
-
-    // async findValidNonce(preparedHash, maxDifficulty, startNonce) {
-    //     // const worker = new Worker("./ThreadWorker.js");
-    //     const promises = [];
-    //     const works = [];
-
-    //     let nonce = startNonce;
-
-    //     for (let i = 0; i < 4; i++) {
-    //         const work = await spawn(new Worker("./ThreadWorker.js"));
-    //         works.push(work);
-
-    //         const promise = work.findSalt(preparedHash, maxDifficulty, nonce + (i * 100000));
-    //         promises.push(promise);
-    //     }
-
-    //     const anyNonce = await Promise.any(promises);
-    //     if (anyNonce === null) {
-    //         await Promise.all(promises);
-    //     }
-
-    //     console.log('anyNonce', anyNonce);
-    //     console.log('anyNonce', anyNonce);
-    //     console.log('anyNonce', anyNonce);
-    //     console.log('anyNonce', anyNonce);
-    //     console.log('anyNonce', anyNonce);
-    //     console.log('anyNonce', anyNonce);
-    //     console.log('anyNonce', anyNonce);
-    //     return anyNonce;
-
-    //     // return await work.findSalt(preparedHash, maxDifficulty, startNonce);
-    // }
-
-    // isValidNonce(blockInfo, nonce, meta, payload) {
-    //     const saltBytes = bcs.u64().serialize(blockInfo.salt).toBytes();
-
-    //     const toHash1Length = blockInfo.previous_hash.length + saltBytes.length + meta.length + payload.length;
-    //     const toHash1 = new Uint8Array(toHash1Length);
-
-    //     toHash1.set(blockInfo.previous_hash, 0);
-    //     toHash1.set(saltBytes, blockInfo.previous_hash.length);
-    //     toHash1.set(meta, blockInfo.previous_hash.length + saltBytes.length);
-    //     toHash1.set(payload, blockInfo.previous_hash.length + saltBytes.length + meta.length);
-
-    //     const hash1 = this.bigIntToUint8Array(BigInt('0x'+hasher.keccak256(toHash1)));
-
-    //     const toHash2Length = hash1.length + (64 / 8); // as nonce is u64
-    //     const toHash2 = new Uint8Array(toHash2Length);
-    //     toHash2.set(hash1, 0);
-    //     const nonceBytes = bcs.u64().serialize(nonce).toBytes();
-    //     toHash2.set(nonceBytes, hash1.length);
-
-    //     const hash = BigInt('0x'+hasher.keccak256(toHash2));
-
-    //     if (hash < blockInfo.difficulty) {
-    //         console.log('hash', hash, 'for nonce', nonce, 'is valid');
-    //         return true;
-    //     } else {
-    //         // console.log('hash', hash, 'for nonce', nonce, 'is not valid');
-    //         return false;
-    //     }
-    // }
 }
