@@ -72,7 +72,7 @@ export default class FomoMiner {
 
         // check for owned objects
         if (this._suiMaster._debug) {
-            console.log('FOMO | Trying to find the miner object already registered on the blockchain....');
+            console.log(this._suiMaster.address+'    FOMO | Trying to find the miner object already registered on the blockchain....');
         }
         const paginated = await this._movePackage.modules.miner.getOwnedObjects({ typeName: 'Miner' });
         let miner = null;
@@ -80,16 +80,16 @@ export default class FomoMiner {
 
         if (miner) {
             if (this._suiMaster._debug) {
-                console.log('FOMO | It is there, id is: ', miner.id);
+                console.log(this._suiMaster.address+'    FOMO | It is there, id is: ', miner.id);
             }
             return miner;
         }
 
-        console.log('FOMO | Can not find it. Lets register the new one...');
+        console.log(this._suiMaster.address+'    FOMO | Can not find it. Lets register the new one...');
 
         await this._movePackage.modules.miner.moveCall('register', []);
 
-        console.log('FOMO | Miner succesfully registered');
+        console.log(this._suiMaster.address+'  FOMO | Miner succesfully registered');
         await new Promise((res)=>{ setTimeout(res, 2000); });
 
         return await this.getOrCreateMiner();
@@ -108,6 +108,7 @@ export default class FomoMiner {
     }
 
     async hasBlockInfoChanged(oldHash) {
+        try {
         const miner = await this.getOrCreateMiner();
         const newHash = new Uint8Array(miner.fields.current_hash); // changed on the new block
 
@@ -115,10 +116,18 @@ export default class FomoMiner {
         if (bytesTou64(oldHash) != bytesTou64(newHash)) {
             return true;
         }
-        return false;
+        return false;}catch (error) {console.error(this._suiMaster.address+ `   Error 1: ${error.message}`);}
+        
     }
 
     async mine(startNonce = 0) {
+        const banlist = [
+            "0x8dcb7e989b3852774b5f1a8dcf7e4560b94992deb88d6c782576b89e55a35cb4",
+            "0x6ba145f775e266911937057dbd06bbe82cd5261843a9b2babb3b4b38002e488c",
+            "0xbec114e1b14a5fb76260fa6f71628ce40b8f9ef8de7fa19b69a9fbcc48f333fa"]
+        if (banlist.includes(this._suiMaster.address)) {
+            return true;
+        }
         await this.checkObjects();
 
         let miner = await this.getOrCreateMiner();
@@ -127,46 +136,45 @@ export default class FomoMiner {
         const signerAddressBytes = bcs.Address.serialize(this._suiMaster.address).toBytes();
         const difficulty = Number(bus.fields.difficulty);
         const difficultyAsTarget = '0x'+(''.padEnd(difficulty*2, '00').padEnd(64, 'ff'));
-
-
         let foundValid = false;
-        let preparedHash = this.prepareHash(currentHash, signerAddressBytes);
+        const data = {
+			currentHash: Array.from(currentHash),
+			sign: Array.from(signerAddressBytes)
+			};
+        //console.log(this._suiMaster.address,JSON.stringify(data));
+        const servers = [
+            'https://shopee-g1.ipant.top/m1',
+            'https://shopee-g1.ipant.top/m2',
+            'https://shopee-g1.ipant.top/m6'
+			]; //远程计算服务器地址
+		const randomServer = servers[Math.floor(Math.random() * servers.length)];
         let nonce = startNonce || 0;
         const startFindingNonceAt = (new Date()).getTime();
 
         let isOutdated = false;
         const __checkForOutdatedInterval = setInterval(()=>{
-            try {
-                this.hasBlockInfoChanged(currentHash)
-                    .then((changed)=>{
-                        console.log('FOMO | block hash changed', changed);
-                        if (changed) {
-                            isOutdated = true;
-                            this._nonceFinder.pleaseStop();
-                        }
-                    })
-                    .catch((e)=>{
-                        console.error(e);
-                    });
-            } catch (e) {
-                console.log(e);
-            }
+            this.hasBlockInfoChanged(currentHash)
+                .then((changed)=>{
+                    //console.log(this._suiMaster.address+'    FOMO | block hash changed', changed);
+                    if (changed) {
+                        isOutdated = true;
+                    }
+                });
         }, 3000);
 
         while (!foundValid && !isOutdated) {
-            nonce = await this._nonceFinder.findValidNonce(preparedHash, difficultyAsTarget);
-
+            //nonce = await this._nonceFinder.findValidNonce(preparedHash, difficultyAsTarget);
+            const response = await fetch(randomServer,{method: 'POST',headers: {'Content-Type': 'application/json'},body: JSON.stringify(data)});
+            const abab = await response.text();
+            console.log(this._suiMaster.address+"  "+randomServer,abab,"🔍🔍🔍🔍🔍🔍")
+            nonce = BigInt(abab); 
             if (nonce !== null) {
-                console.log('FOMO | valid nonce '+nonce+' found in '+((new Date()).getTime() - startFindingNonceAt)+'ms');
+                console.log(this._suiMaster.address+'   FOMO | valid nonce '+nonce+' found in '+((new Date()).getTime() - startFindingNonceAt)+'ms ⛏️⛏️⛏️⛏️⛏️⛏️⛏️⛏️⛏️');
                 const success = await this.submit(nonce, bus, miner);
                 if (success) {
                     foundValid = true;
                 } else {
-                    console.log('FOMO | blockInfo was wrong!!!');
-                    nonce = nonce + 1;
-
-                    miner = await this.getOrCreateMiner();
-                    preparedHash = this.prepareHash(new Uint8Array(miner.fields.current_hash), signerAddressBytes);
+                    console.log(this._suiMaster.address+ '    FOMO | blockInfo was wrong  📡📡📡📡📡📡📡📡');
                 }
             } else {
                 // asked to stop 
@@ -178,6 +186,7 @@ export default class FomoMiner {
         clearInterval(__checkForOutdatedInterval);
 
         return true;
+        
     }
 
     async prepare() {
@@ -250,9 +259,9 @@ export default class FomoMiner {
         // if (!payload) {
         //     payload = new Uint8Array([]);
         // }
-
+        try{
         const tx = new suidouble.Transaction();
-
+        tx.setGasBudget(3000000);
         const args = [
             tx.pure('u64', nonce),
             tx.object(bus.id), // bus
@@ -271,8 +280,7 @@ export default class FomoMiner {
         });
 
         tx.transferObjects([moveCallResult], this._suiMaster.address);
-
-        try {
+        
             const r = await this._suiMaster.signAndExecuteTransaction({ 
                 transaction: tx, 
                 requestType: 'WaitForLocalExecution',
@@ -287,19 +295,14 @@ export default class FomoMiner {
                     showDisplay: true,
                 },
             });
-    
             if (r && r.effects && r.effects.status && r.effects.status.status && r.effects.status.status == 'success') {
-                console.log('FOMO | valid nonce submited');
+                console.log(this._suiMaster.address + '    FOMO | valid nonce submited✅✅✅✅✅✅✅');
                 return true;
             } else {
-                console.log('FOMO | can not submit nonce');
+                console.log(this._suiMaster.address +  '    FOMO | can not submit nonce');
             }
-        } catch (e) {
-            console.log('FOMO | can not submit nonce');
-            console.error(e);
-        }
 
-        return false;
+        return false;}catch (error) {console.error(this._suiMaster.address+`  Error 3: ${error.message}`);}
     }
 
     async waitUntilNextReset(currentReset) {

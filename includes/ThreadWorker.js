@@ -1,6 +1,6 @@
 import { expose } from "threads/worker";
 import hasher from 'js-sha3';
-// import { bcs } from '@mysten/sui/bcs';
+import { bcs } from '@mysten/sui/bcs';
 
 import { 
     incrementBytes,
